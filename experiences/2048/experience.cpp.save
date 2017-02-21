@@ -1,0 +1,122 @@
+#include "experience.h"
+
+#include "engine2048.h"
+#include "grid.hpp"
+
+#include <cmath>
+#include <ctime>
+#include <algorithm>
+#include <iostream>
+#include <array>
+#include "bitmanip.h"
+
+Experience2048::Experience2048() {}
+
+inline ExperienceState<16> convert_game_state(grid& game) {
+	ExperienceState<16> s;
+	for(int x = 0; x < 4; x++)
+	for(int y = 0; y < 4; y++) {
+		int v = grid.get(x, y);
+		s[4*y+x] = v == 0 ? 0 :std::log2(v);
+	}
+	return s;
+}
+
+inline grid& convert_state_game(ExperienceState<16> state) {
+	grid g;
+	for(int x = 0; x < 4; x++)
+	for(int y = 0; y < 4; y++)
+		g.set(x,y, state[y*4 +x]:
+	return grid;
+}
+
+
+std::array<ExperienceAction, 4> Experience2048::available_actions() {
+	return {0,1,2,3};
+}
+
+
+ExperienceState<16> Experience2048::get_initial_state() {
+	grid g;
+	return convert_game_state(g);
+}
+
+
+bool Experience2048::is_terminal_state(ExperienceState<16>& s) {
+	return convert_state_game(s).can_move(
+
+}
+
+
+std::pair<DQLA_FP_TYPE, ExperienceState<16> > Experience2048::get_transition(ExperienceAction& action, ExperienceState<16>& curr_state) {
+	
+	std::pair<DQLA_FP_TYPE, ExperienceState<16> > transition;
+
+	board_t board1, g;
+	for(int x = 0; x < 4; x++)
+	for(int y = 0; y < 4; y++) {
+		int v(curr_state[y * 4 + x]);
+		
+		board_set_value_at(&board1, x, y, v == 0 ? 0 : 1 << v);
+	}
+
+	g = board1;
+	int prev_score = *std::max_element(board1.cells, board1.cells + 16), prev_occupied = PopCnt(board1.occupied_cells);
+	switch(action) {
+		case 0:
+			board_move(&g, MOVE_UP);
+			break;
+		case 1:
+			board_move(&g, MOVE_RIGHT);
+			break;
+		case 2:
+			board_move(&g, MOVE_DOWN);
+			break;
+		case 3:
+			board_move(&g, MOVE_LEFT);
+			break;
+	}
+	int new_score = *std::max_element(g.cells, g.cells + 16), new_occupied = PopCnt(g.occupied_cells);
+	
+	transition.first = 20 * std::log2(new_score - prev_score) * (1 + (DQLA_FP_TYPE) (prev_occupied-new_occupied)/8);
+	transition.second = convert_game_state(&g);
+
+	return transition;
+}
+
+
+void Experience2048::evaluate(QBrain<16, 4>& brain) {
+	ExperienceState<16> game_state;
+	board_t game = board_init();
+	board_print(game);
+	char c;
+	game_state = convert_game_state(&game);
+	while(!is_terminal_state(game_state)) {
+		std::array<DQLA_FP_TYPE, 4> q_scores = brain.get_scores(game_state);
+		int action = std::distance(q_scores.begin(), std::max_element(q_scores.begin(), q_scores.end()));
+		switch(action) {
+                	case 0:
+                        	board_move(&game, MOVE_UP);
+                        	break;
+                	case 1:
+                        	board_move(&game, MOVE_RIGHT);
+                        	break;
+                	case 2:
+                        	board_move(&game, MOVE_DOWN);
+                        	break;
+               		case 3:
+	                        board_move(&game, MOVE_LEFT);
+        	                break;
+        	}
+		std::cout << "Action=" <<action << std::endl;
+		board_print(game);
+		std::cout << "-----------------------" << std::endl;
+		std::cin.get();
+		game_state = convert_game_state(&game);
+	}
+	int max = 0;
+	for(int i = 0; i < 4; i++)
+	for(int j = 0; j < 4; j++)
+		max = std::max(max, board_value_at(&game, i, j));
+	std::cout << "Valeur maximum atteinte:" << std::endl;
+}
